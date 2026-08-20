@@ -82,6 +82,20 @@ $('big').onclick = async () => chrome.storage.local.set({ big: !(await chrome.st
 $('notify').onclick = () => chrome.storage.local.set({ notify: !notify }); // syncBig() repaints through storage.onChanged
 $('list').onclick = async e => { if (e.target.dataset.key) render(await api('/remove', e.target.dataset.key)); };
 
+/** Swapping the song inside the running player instead of navigating away: a page load drops
+ *  the screen out of fullscreen, and nothing but a human click can get it back.
+ *  player.js makes the call from the page's own world and answers synchronously. */
+function play(id) {
+  let swapped = false;
+  const ok = () => (swapped = true);
+  addEventListener('kara-played', ok);
+  dispatchEvent(new CustomEvent('kara-play', { detail: id })); // dispatch is synchronous, in both worlds at once
+  removeEventListener('kara-played', ok);
+  // Only the player moved, so bring the address bar along: current() is what everything else reads.
+  if (swapped) history.replaceState(history.state, '', `/watch?v=${id}`); // keep YouTube's own state object
+  else location.href = `https://www.youtube.com/watch?v=${id}`; // no player yet, e.g. a tab just opened
+}
+
 function render(queue) {
   if (!queue) return ($('list').innerHTML = '<li>сервер недоступен</li>'); // stay quiet and keep playing
   const card = (s, label) => (s ? `${label}: ${esc(s.title)}${who(s)}` : '');
@@ -90,7 +104,7 @@ function render(queue) {
   $('list').innerHTML = queue
     .map((s, i) => `<li>${i ? '' : '▶ '}${esc(s.title)}${who(s)} <button data-key="${esc(s.key)}">✕</button></li>`)
     .join('');
-  if (enabled && queue[0] && queue[0].id !== current()) location.href = `https://www.youtube.com/watch?v=${queue[0].id}`;
+  if (enabled && queue[0] && queue[0].id !== current()) play(queue[0].id);
 }
 
 // The ring around the button shows how much of the song has played
@@ -98,7 +112,7 @@ document.addEventListener('timeupdate', e => {
   const v = e.target;
   if (v.tagName !== 'VIDEO' || !v.duration) return; // duration is NaN during ads and before metadata loads
   panel.style.setProperty('--p', v.currentTime / v.duration);
-  // A song change reloads the page, so the "now" half also covers a skip: the next video simply starts at zero.
+  // A new song starts at zero however it arrived, so the "now" half also covers a skip.
   // Recomputed on every tick — rewinding hides the card again, no flag to reset.
   const text = document.querySelector('.ad-showing') ? '' // ads run in the same <video>: their edges are not ours
     : v.currentTime <= CARD ? cardNow
@@ -113,6 +127,7 @@ document.addEventListener('timeupdate', e => {
 document.addEventListener('ended', async e => {
   if (!enabled || e.target.tagName !== 'VIDEO') return;
   if (document.querySelector('.ad-showing')) return; // ads play in the very same <video>
+  if (!e.target.ended) return; // a swap resets the element: an ended left over from the previous song would eat the next one
   render(await api('/skip', current())); // send the id so we never drop someone else's head of the queue
 }, true);
 

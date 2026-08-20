@@ -17,6 +17,16 @@
       "css": [
         "screen.css"
       ]
+    },
+    {
+      "matches": [
+        "*://www.youtube.com/watch*"
+      ],
+      "js": [
+        "player.js"
+      ],
+      "run_at": "document_start",
+      "world": "MAIN"
     }
   ],
   "host_permissions": [
