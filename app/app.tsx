@@ -72,10 +72,10 @@ function App() {
     setTimeout(() => setCopied(false), 1500);
   };
 
-  const addSong = (s: Found) => {
-    setQ('');
+  // The search stays where it is: one search usually holds more than one song worth queueing,
+  // and the queue redrawing below is the confirmation. The ✕ clears it when the guest is done.
+  const addSong = (s: Found) =>
     post(`/add?title=${encodeURIComponent(s.title)}&uid=${uid}`, `https://youtu.be/${s.id}`).then(setQueue);
-  };
 
   return (
     <>
