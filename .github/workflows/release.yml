@@ -1,0 +1,24 @@
+# Bun cross-compiles, so one Linux runner builds both platforms — no matrix, no macOS minutes.
+name: release
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write # gh release create
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+      - run: bun install --frozen-lockfile
+        working-directory: app
+      - run: bun run build:mac && bun run build:win
+        working-directory: app
+      - run: |
+          cd extension && zip -r ../builds/extension.zip . # unpacked extension: chrome://extensions → load unpacked
+      - run: gh release create "$GITHUB_REF_NAME" builds/* --generate-notes
+        env:
+          GH_TOKEN: ${{ github.token }}
