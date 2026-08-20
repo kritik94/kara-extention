@@ -9,10 +9,29 @@
   .search { position: relative; margin-bottom: 10px; }
   .search input { padding-right: 46px; }
   .clear { position: absolute; right: 6px; top: 50%; transform: translateY(-50%); background: none; color: #888; font-size: 18px; padding: 6px 10px; }
-  .only { display: flex; align-items: center; gap: 8px; color: #aaa; font-size: 14px; }
+  .only { display: flex; margin: 10px 0; align-items: center; gap: 8px; color: #aaa; font-size: 14px; }
   .only input { width: 18px; height: 18px; }
-  .bar { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
-  .qr { margin-top: 12px; padding: 12px; background: #fff; border-radius: 10px; text-align: center; }
+  /* position: relative on the tab strip: the share sheet lines up with its right edge */
+  .tabs { position: relative; display: flex; align-items: center; gap: 8px; margin-bottom: 12px; }
+  .tab { background: #1c1c1c; color: #888; }
+  .tab.on { background: #333; color: #eee; }
+  .tabs .drop { margin-left: auto; }
+  .nick { color: #888; font-size: 13px; margin-top: 2px; }
+  .drop summary { list-style: none; display: flex; padding: 10px 14px; font-size: 15px; line-height: 1; border-radius: 8px; background: #333; cursor: pointer; }
+  .drop summary::-webkit-details-marker { display: none; }
+  .drop[open] summary { background: #444; }
+  .sheet { position: absolute; right: 0; top: calc(100% + 8px); z-index: 10;
+    width: 280px; max-width: calc(100vw - 32px); padding: 12px;
+    background: #1c1c1c; border: 1px solid #333; border-radius: 10px; }
+  .field { color: #aaa; font-size: 14px; }
+  .line { display: flex; align-items: center; gap: 8px; margin-top: 6px; }
+  .me { flex: 1; font-size: 16px; color: #eee; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .icon { padding: 8px 11px; }
+  .swatch { flex: none; width: 38px; height: 38px; padding: 0; border: 2px solid #444; }
+  .grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-top: 10px; }
+  .grid button { padding: 0; aspect-ratio: 1; border: 3px solid transparent; }
+  .grid button[aria-pressed='true'] { border-color: #eee; }
+  .qr { padding: 12px; background: #fff; border-radius: 10px; text-align: center; }
   .qr img { width: 100%; max-width: 240px; display: block; margin: 0 auto; }
   .link { display: flex; align-items: center; justify-content: center; gap: 6px; margin-top: 8px; }
   .link span { color: #111; font: 14px ui-monospace, monospace; word-break: break-all; }

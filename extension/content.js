@@ -78,7 +78,7 @@ $('list').onclick = async e => { if (e.target.dataset.key) render(await api('/re
 function render(queue) {
   if (!queue) return ($('list').innerHTML = '<li>сервер недоступен</li>'); // stay quiet and keep playing
   $('list').innerHTML = queue
-    .map((s, i) => `<li>${i ? '' : '▶ '}${esc(s.title)} <button data-key="${esc(s.key)}">✕</button></li>`)
+    .map((s, i) => `<li>${i ? '' : '▶ '}${esc(s.title)}${s.nick ? ` <i${s.color ? ` style="color:${esc(s.color)}"` : ''}>${esc(s.nick)}</i>` : ''} <button data-key="${esc(s.key)}">✕</button></li>`)
     .join('');
   if (enabled && queue[0] && queue[0].id !== current()) location.href = `https://www.youtube.com/watch?v=${queue[0].id}`;
 }

@@ -6,8 +6,25 @@ import { networkInterfaces } from 'node:os';
 
 /** key is the entry's own identity: the same song may sit in the queue twice. */
 export type Found = { id: string; title: string };          // a search result
-export type Song = Found & { key: string };                 // an entry in the queue
+export type Song = Found & { key: string; uid?: string };    // an entry in the queue, uid is whoever added it
 export const queue: Song[] = [];
+
+/** Name and colour live with the user, not with the song: rename yourself and every song of yours follows.
+ *  uid is whatever the guest's browser drew for itself — voluntary, unverified, and that is the whole point. */
+export type User = { nick?: string; color?: string };
+export const users = new Map<string, User>();
+
+/** Guest input: the client's maxLength is only a hint, and the colour lands in a style attribute on the screen. */
+export const setMe = (uid: string, nick?: string, color?: string) => {
+  const me = {
+    nick: nick?.trim().slice(0, 24) || undefined,
+    color: /^#[0-9a-f]{6}$/i.test(color ?? '') ? color : undefined,
+  };
+  users.set(uid, me);
+  return me;
+};
+
+export const withUsers = (songs: Song[]) => songs.map(s => ({ ...s, ...users.get(s.uid ?? '') }));
 
 export const ids = (text: string) =>
   [...text.matchAll(/(?:v=|youtu\.be\/|shorts\/)([\w-]{11})/g)].map(m => m[1]);
@@ -35,13 +52,14 @@ async function titleOf(id: string) {
 }
 
 /** title comes from whoever already knows it (search), which skips the extra oembed round trip. */
-export const add = async (text: string, title?: string) => {
+export const add = async (text: string, title?: string, uid?: string) => {
   const found = ids(text);
   return queue.push(
     ...(await Promise.all(
       found.map(async id => ({
         key: nanoid(8),
         id,
+        uid,
         title: title && found.length === 1 ? title : await titleOf(id),
       })),
     )),
@@ -78,19 +96,34 @@ export function lanURL(port: number) {
 /** Sits next to the binary: run kara.exe in a folder and kara.db shows up there. */
 export function openDB(path = process.env.KARA_DB ?? 'kara.db') {
   const db = new Database(path, { create: true });
-  db.run('CREATE TABLE IF NOT EXISTS queue (pos INTEGER PRIMARY KEY, key TEXT, id TEXT, title TEXT)');
+  db.run('CREATE TABLE IF NOT EXISTS queue (pos INTEGER PRIMARY KEY, key TEXT, id TEXT, title TEXT, uid TEXT)');
+  db.run('CREATE TABLE IF NOT EXISTS users (uid TEXT PRIMARY KEY, nick TEXT, color TEXT)');
+  try { db.run('ALTER TABLE queue ADD COLUMN uid TEXT'); } catch {}  // database written by a version without users
+  try { db.run('ALTER TABLE users ADD COLUMN color TEXT'); } catch {} // ...or without colours
   return db;
 }
 
-export const load = (db: Database) => db.query('SELECT key, id, title FROM queue ORDER BY pos').all() as Song[];
+export const load = (db: Database) => db.query('SELECT key, id, title, uid FROM queue ORDER BY pos').all() as Song[];
+
+export const loadUsers = (db: Database) =>
+  new Map(
+    (db.query('SELECT uid, nick, color FROM users').all() as { uid: string; nick: string | null; color: string | null }[])
+      .map(u => [u.uid, { nick: u.nick ?? undefined, color: u.color ?? undefined }] as const),
+  );
+
+export const saveUser = (db: Database, uid: string, me: User) =>
+  db.run(
+    'INSERT INTO users (uid, nick, color) VALUES (?, ?, ?) ON CONFLICT(uid) DO UPDATE SET nick = excluded.nick, color = excluded.color',
+    [uid, me.nick ?? null, me.color ?? null],
+  );
 
 /** The queue is short, so rewrite it whole — cheaper than tracking individual rows.
  *  ponytail: full table rewrite; switch to targeted INSERT/DELETE if it ever grows to hundreds of songs. */
 export const save = (db: Database, songs: Song[]) =>
   db.transaction(() => {
     db.run('DELETE FROM queue');
-    const ins = db.prepare('INSERT INTO queue (pos, key, id, title) VALUES (?, ?, ?, ?)');
-    songs.forEach((s, i) => ins.run(i, s.key, s.id, s.title));
+    const ins = db.prepare('INSERT INTO queue (pos, key, id, title, uid) VALUES (?, ?, ?, ?, ?)');
+    songs.forEach((s, i) => ins.run(i, s.key, s.id, s.title, s.uid ?? null));
   })();
 
 type Handler = (req: Request, srv: Bun.Server) => Response | undefined | Promise<Response | undefined>;
@@ -132,6 +165,7 @@ const json = (data: unknown) =>
 if (import.meta.main) {
   const db = openDB();
   queue.push(...load(db)); // whatever survived the restart; empty on a fresh database
+  loadUsers(db).forEach((me, uid) => users.set(uid, me));
   const port = Number(process.env.PORT ?? 8765);
   const url = lanURL(port);
   const qr = await QRCode.toString(url, { type: 'svg', margin: 2, color: { light: '#fff' } });
@@ -142,8 +176,23 @@ if (import.meta.main) {
     routes: logged({
       '/': index,
       '/qr.svg': () => new Response(qr, { headers: { 'Content-Type': 'image/svg+xml', 'Access-Control-Allow-Origin': '*' } }),
-      '/queue': () => json(queue),
-      '/add': { POST: async req => (await add(await req.text(), new URL(req.url).searchParams.get('title') ?? undefined), push()) },
+      '/queue': () => json(withUsers(queue)),
+      '/add': {
+        POST: async req => {
+          const p = new URL(req.url).searchParams;
+          await add(await req.text(), p.get('title') ?? undefined, p.get('uid')?.slice(0, 64));
+          return push();
+        },
+      },
+      '/me': {
+        POST: async req => {
+          const p = new URL(req.url).searchParams;
+          const uid = p.get('uid')?.slice(0, 64);
+          if (!uid) return new Response('нужен uid', { status: 400 });
+          saveUser(db, uid, setMe(uid, p.get('nick') ?? undefined, p.get('color') ?? undefined));
+          return push(); // everyone's copy of the queue shows the new name right away
+        },
+      },
       '/skip': { POST: async req => (skip((await req.text()) || undefined), push()) },
       '/remove': { POST: async req => (remove(await req.text()), push()) },
       '/search': async req => {
@@ -154,14 +203,19 @@ if (import.meta.main) {
     // State is pushed over the socket; actions stay plain RPC over POST
     fetch: (req, srv) => (srv.upgrade(req) ? undefined : new Response('404', { status: 404 })),
     websocket: {
-      open: ws => (ws.subscribe('queue'), ws.send(JSON.stringify(queue)), log('ws + подключился')), // a new guest sees the queue right away
+      open: ws => (ws.subscribe('queue'), ws.send(JSON.stringify(withUsers(queue))), log('ws + подключился')), // a new guest sees the queue right away
       close: () => log('ws − отключился'),
       message: () => {},
     },
   });
 
   /** Broadcast the queue to everyone and answer the caller with it. */
-  const push = () => (save(db, queue), server.publish('queue', JSON.stringify(queue)), json(queue));
+  const push = () => {
+    save(db, queue);
+    const shown = withUsers(queue);
+    server.publish('queue', JSON.stringify(shown));
+    return json(shown);
+  };
 
   console.log(await QRCode.toString(url, { type: 'terminal', small: true }));
   console.log(`экран: http://127.0.0.1:${port}   телефоны: ${url}`);
