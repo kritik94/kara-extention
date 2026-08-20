@@ -12,14 +12,20 @@ panel.innerHTML = `
   <button id="kara-toggle">🎤</button>
   <div id="kara-body" hidden>
     <p><button id="kara-skip">Пропустить</button><button id="kara-big">Во весь экран</button></p>
+    <p><button id="kara-notify" title="Кто поёт и кто следующий: 10 секунд до конца песни и 10 после начала новой">Объявлять песни</button></p>
     <ol id="kara-list"></ol>
     <div id="kara-qr" title="QR на страницу очереди"></div>
-  </div>`;
+  </div>
+  <div id="kara-next" hidden></div>`;
 
 const $ = id => panel.querySelector('#kara-' + id);
 let enabled = true; // switched off in the popup — the extension leaves the page alone entirely
+let notify = true; // the on-screen card around the song change
+const CARD = 10; // seconds of card on each side of the change — before the end and after the next one starts
+let cardNow = '', cardNext = ''; // rebuilt by render(), shown by timeupdate
 // Titles come from YouTube and from guests — never feed them raw to innerHTML
 const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
+const who = s => (s.nick ? ` <i${s.color ? ` style="color:${esc(s.color)}"` : ''}>${esc(s.nick)}</i>` : '');
 
 // Dragging the button: pointer events cover both mouse and finger
 const toggle = $('toggle');
@@ -73,12 +79,16 @@ toggle.onclick = () => {
 addEventListener('resize', placeBody);
 $('skip').onclick = async () => render(await api('/skip'));
 $('big').onclick = async () => chrome.storage.local.set({ big: !(await chrome.storage.local.get('big')).big });
+$('notify').onclick = () => chrome.storage.local.set({ notify: !notify }); // syncBig() repaints through storage.onChanged
 $('list').onclick = async e => { if (e.target.dataset.key) render(await api('/remove', e.target.dataset.key)); };
 
 function render(queue) {
   if (!queue) return ($('list').innerHTML = '<li>сервер недоступен</li>'); // stay quiet and keep playing
+  const card = (s, label) => (s ? `${label}: ${esc(s.title)}${who(s)}` : '');
+  cardNow = card(queue[0], 'Сейчас');
+  cardNext = card(queue[1], 'Далее');
   $('list').innerHTML = queue
-    .map((s, i) => `<li>${i ? '' : '▶ '}${esc(s.title)}${s.nick ? ` <i${s.color ? ` style="color:${esc(s.color)}"` : ''}>${esc(s.nick)}</i>` : ''} <button data-key="${esc(s.key)}">✕</button></li>`)
+    .map((s, i) => `<li>${i ? '' : '▶ '}${esc(s.title)}${who(s)} <button data-key="${esc(s.key)}">✕</button></li>`)
     .join('');
   if (enabled && queue[0] && queue[0].id !== current()) location.href = `https://www.youtube.com/watch?v=${queue[0].id}`;
 }
@@ -88,6 +98,15 @@ document.addEventListener('timeupdate', e => {
   const v = e.target;
   if (v.tagName !== 'VIDEO' || !v.duration) return; // duration is NaN during ads and before metadata loads
   panel.style.setProperty('--p', v.currentTime / v.duration);
+  // A song change reloads the page, so the "now" half also covers a skip: the next video simply starts at zero.
+  // Recomputed on every tick — rewinding hides the card again, no flag to reset.
+  const text = document.querySelector('.ad-showing') ? '' // ads run in the same <video>: their edges are not ours
+    : v.currentTime <= CARD ? cardNow
+    : v.duration - v.currentTime <= CARD ? cardNext
+    : '';
+  const el = $('next');
+  if (el.innerHTML !== text) el.innerHTML = text;
+  el.hidden = !(enabled && notify && text);
 }, true);
 
 // ended does not bubble but is caught in the capture phase — no need to wait for <video> to appear
@@ -98,8 +117,10 @@ document.addEventListener('ended', async e => {
 }, true);
 
 const syncBig = async () => {
-  const { big, pos, enabled: saved } = await chrome.storage.local.get(['big', 'pos', 'enabled']);
+  const { big, pos, enabled: saved, notify: savedNotify } = await chrome.storage.local.get(['big', 'pos', 'enabled', 'notify']);
   enabled = saved ?? true; // the popup switch controls both the logic and the on-screen button
+  notify = savedNotify ?? true;
+  $('notify').classList.toggle('on', notify);
   panel.hidden = !enabled;
   document.documentElement.classList.toggle('kara-big', !!big);
   if (pos && panel.isConnected) place(pos.x, pos.y); // the position survives the jump to the next song

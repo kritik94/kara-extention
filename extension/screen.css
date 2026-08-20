@@ -87,3 +87,18 @@ html.kara-big .ytp-suggested-action,
 html.kara-big .ytp-endscreen-content,
 html.kara-big .ytp-pause-overlay,
 html.kara-big .iv-branding { display: none !important; }
+
+/* "Next up" card: fixed, so the dragged panel's own position does not move it */
+#kara-next {
+  position: fixed; left: 50%; top: 8vh; transform: translateX(-50%);
+  max-width: 80vw; padding: 14px 22px;
+  font-size: 26px; text-align: center; text-wrap: balance;
+  background: rgba(20,20,20,.9); border-radius: 12px;
+  box-shadow: 0 4px 24px rgba(0,0,0,.6);
+  animation: kara-in .3s ease-out;
+}
+#kara-next[hidden] { display: none; }
+#kara-next i { font-style: normal; color: #9df2a6; }
+@keyframes kara-in { from { opacity: 0; transform: translate(-50%, -12px); } }
+
+#kara-body button.on { color: #9df2a6; background: rgba(62,207,74,.16); border-color: rgba(62,207,74,.55); }
