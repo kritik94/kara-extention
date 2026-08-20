@@ -1,0 +1,25 @@
+{
+  "manifest_version": 3,
+  "name": "Kara Queue",
+  "version": "0.0.1",
+  "permissions": [
+    "storage"
+  ],
+  "content_scripts": [
+    {
+      "matches": [
+        "*://www.youtube.com/watch*"
+      ],
+      "js": [
+        "content.js"
+      ],
+      "run_at": "document_start",
+      "css": [
+        "screen.css"
+      ]
+    }
+  ],
+  "host_permissions": [
+    "http://127.0.0.1:8765/*"
+  ]
+}

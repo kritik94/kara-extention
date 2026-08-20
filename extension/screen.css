@@ -1,0 +1,86 @@
+/* Плеер поверх всей страницы. !important — YouTube ставит размеры инлайном. */
+html.kara-big { overflow: hidden !important; }
+
+html.kara-big #movie_player {
+  position: fixed !important;
+  inset: 0 !important;
+  width: 100vw !important;
+  height: 100vh !important;
+  background: #000 !important;
+}
+
+/* Контейнеру нельзя давать z-index: он сосед .ytp-chrome-bottom и накроет контролы. */
+html.kara-big .html5-video-container {
+  position: absolute !important;
+  inset: 0 !important;
+  width: 100% !important;
+  height: 100% !important;
+}
+
+html.kara-big video.html5-main-video {
+  position: absolute !important;
+  inset: 0 !important;
+  width: 100% !important;
+  height: 100% !important;
+  object-fit: contain !important;
+}
+
+/* Панель поверх всего, включая растянутый плеер */
+#kara {
+  position: fixed !important;
+  right: 16px; top: 64px; /* на свою высоту ниже: под шапкой ютуба */
+  z-index: 2147483647;
+  font: 14px system-ui;
+  color: #fff;
+  text-align: right;
+}
+/* Кольцо прогресса: conic-gradient по border-box, тёмная заливка по padding-box. --p ставит content.js */
+#kara-toggle { font-size: 20px; line-height: 1; padding: 8px; border-radius: 50%; cursor: pointer;
+  border: 3px solid transparent;
+  background:
+    linear-gradient(rgba(20,20,20,.9), rgba(20,20,20,.9)) padding-box,
+    conic-gradient(#f33 calc(var(--p, 0) * 1turn), rgba(255,255,255,.35) 0) border-box;
+  box-shadow: 0 2px 10px rgba(0,0,0,.5); opacity: .9; transition: opacity .15s, transform .15s;
+  touch-action: none; user-select: none; } /* touch-action: иначе палец скроллит страницу вместо перетаскивания */
+#kara-toggle:hover { opacity: 1; transform: scale(1.08); }
+/* Координаты ставит placeBody() в content.js: CSS сам про край экрана не знает. */
+#kara-body {
+  position: fixed;
+  width: 300px; padding: 12px;
+  max-height: 70vh; overflow-y: auto; /* длинная очередь не вылезет за экран по высоте */
+  background: rgba(20,20,20,.95); border-radius: 8px; text-align: left;
+  box-shadow: 0 4px 20px rgba(0,0,0,.6);
+}
+#kara-body p { display: flex; gap: 8px; margin: 0 0 10px; }
+#kara-body button { flex: 1; padding: 9px 10px; font: inherit; color: #eee; cursor: pointer;
+  background: #2b2b2b; border: 1px solid rgba(255,255,255,.14); border-radius: 8px;
+  transition: background .15s, border-color .15s; }
+#kara-body button:hover { background: #3a3a3a; border-color: rgba(255,255,255,.3); }
+#kara-body button:active { background: #222; }
+
+#kara-list { max-height: 240px; overflow-y: auto; margin: 0; padding-left: 22px; }
+#kara-list li { padding: 6px 0; line-height: 1.35; border-bottom: 1px solid rgba(255,255,255,.07); }
+#kara-list li:last-child { border-bottom: 0; }
+#kara-list li::marker { color: #777; }
+/* Крестики — не такие же кнопки, как действия: маленькие, без рамки, краснеют при наведении */
+#kara-list button { flex: none; width: 24px; height: 24px; padding: 0; margin-left: 6px;
+  font-size: 12px; color: #888; background: none; border: 0; border-radius: 50%; vertical-align: middle; }
+#kara-list button:hover { background: rgba(255,60,60,.3); color: #fff; border-color: transparent; }
+
+#kara-qr { text-align: center; }
+#kara-qr svg { width: 210px; display: block; margin: 10px auto 0; border-radius: 4px; background: #fff; }
+
+/* z-index бесполезен: #movie_player внутри своего stacking context у ytd-app.
+   visibility наследуется — гасим всю страницу и возвращаем только плеер. */
+html.kara-big body > *:not(#kara) { visibility: hidden !important; }
+html.kara-big #movie_player,
+html.kara-big #movie_player * { visibility: visible !important; }
+html.kara-big body { background: #000 !important; }
+
+/* Предложка YouTube внутри плеера: карточки автора, тизеры, эндскрин, оверлей паузы. */
+html.kara-big .ytp-ce-element,
+html.kara-big .ytp-cards-teaser,
+html.kara-big .ytp-suggested-action,
+html.kara-big .ytp-endscreen-content,
+html.kara-big .ytp-pause-overlay,
+html.kara-big .iv-branding { display: none !important; }
