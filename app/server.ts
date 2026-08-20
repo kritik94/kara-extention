@@ -1,32 +1,32 @@
 import index from './index.html';
 import QRCode from 'qrcode';
 import { nanoid } from 'nanoid';
-import { Database } from 'bun:sqlite'; // встроен в Bun, отдельной зависимости не нужно
+import { Database } from 'bun:sqlite'; // bundled with Bun, no extra dependency
 import { networkInterfaces } from 'node:os';
 
-/** key — своя личность записи: одна песня может стоять в очереди дважды. */
-export type Found = { id: string; title: string };          // результат поиска
-export type Song = Found & { key: string };                 // запись в очереди
+/** key is the entry's own identity: the same song may sit in the queue twice. */
+export type Found = { id: string; title: string };          // a search result
+export type Song = Found & { key: string };                 // an entry in the queue
 export const queue: Song[] = [];
 
 export const ids = (text: string) =>
   [...text.matchAll(/(?:v=|youtu\.be\/|shorts\/)([\w-]{11})/g)].map(m => m[1]);
 
 export function skip(id?: string) {
-  // id защищает от гонки: экран досмотрел A, а очередь уже уехала — не глотаем чужую песню
+  // id guards a race: the screen finished A while the queue moved on — never swallow someone else's song
   if (queue.length && (!id || queue[0].id === id)) queue.shift();
 }
 
 export function remove(key: string) {
   const i = queue.findIndex(s => s.key === key);
-  if (i >= 0) queue.splice(i, 1); // по ключу, а не по индексу: два гостя могут удалять одновременно
+  if (i >= 0) queue.splice(i, 1); // by key, not by index: two guests may be deleting at the same time
 }
 
-/** oembed: без ключа и без квоты, в отличие от Data API */
+/** oembed: no API key and no quota, unlike the Data API */
 async function titleOf(id: string) {
   try {
     const r = await fetch(`https://www.youtube.com/oembed?url=https://youtu.be/${id}&format=json`);
-    if (!r.ok) throw new Error(`oembed ${r.status}`); // 401 у видео с запретом встраивания, 429 при частых запросах
+    if (!r.ok) throw new Error(`oembed ${r.status}`); // 401 for videos with embedding disabled, 429 when called too often
     return ((await r.json()) as { title: string }).title;
   } catch (e) {
     log(`название для ${id} не добылось (${e}), показываю id`);
@@ -34,7 +34,7 @@ async function titleOf(id: string) {
   }
 }
 
-/** title передаёт тот, кто его уже знает (поиск) — тогда лишнего похода в oembed не будет. */
+/** title comes from whoever already knows it (search), which skips the extra oembed round trip. */
 export const add = async (text: string, title?: string) => {
   const found = ids(text);
   return queue.push(
@@ -48,7 +48,7 @@ export const add = async (text: string, title?: string) => {
   );
 };
 
-/** Разбор ytInitialData поиском по дереву: переживает перестановку блоков на странице. */
+/** Walks the ytInitialData tree instead of matching markup: survives YouTube reshuffling its blocks. */
 export function pickVideos(node: unknown, out: Found[] = []) {
   if (!node || typeof node !== 'object') return out;
   const v = (node as any).videoRenderer;
@@ -67,7 +67,7 @@ export async function search(q: string, karaoke = true) {
   return raw ? pickVideos(JSON.parse(raw)).slice(0, 12) : [];
 }
 
-/** Адрес, по которому телефоны в той же сети откроют страницу. 127.0.0.1 им бесполезен. */
+/** The address phones on the same network can open. 127.0.0.1 is useless to them. */
 export function lanURL(port: number) {
   const ip = Object.values(networkInterfaces())
     .flat()
@@ -75,7 +75,7 @@ export function lanURL(port: number) {
   return `http://${ip ?? '127.0.0.1'}:${port}`;
 }
 
-/** Файл рядом с исполняемым: запустил kara.exe в папке — там же и появится kara.db. */
+/** Sits next to the binary: run kara.exe in a folder and kara.db shows up there. */
 export function openDB(path = process.env.KARA_DB ?? 'kara.db') {
   const db = new Database(path, { create: true });
   db.run('CREATE TABLE IF NOT EXISTS queue (pos INTEGER PRIMARY KEY, key TEXT, id TEXT, title TEXT)');
@@ -84,8 +84,8 @@ export function openDB(path = process.env.KARA_DB ?? 'kara.db') {
 
 export const load = (db: Database) => db.query('SELECT key, id, title FROM queue ORDER BY pos').all() as Song[];
 
-/** Очередь короткая, поэтому переписываем её целиком — дешевле, чем следить за отдельными строками.
- *  ponytail: перезапись всей таблицы; если очередь дорастёт до сотен песен, точечные INSERT/DELETE. */
+/** The queue is short, so rewrite it whole — cheaper than tracking individual rows.
+ *  ponytail: full table rewrite; switch to targeted INSERT/DELETE if it ever grows to hundreds of songs. */
 export const save = (db: Database, songs: Song[]) =>
   db.transaction(() => {
     db.run('DELETE FROM queue');
@@ -95,7 +95,7 @@ export const save = (db: Database, songs: Song[]) =>
 
 type Handler = (req: Request, srv: Bun.Server) => Response | undefined | Promise<Response | undefined>;
 
-/** Оборачивает все хендлеры разом: добавить ручку — лог появится сам, руками ничего не дублируем. */
+/** Wraps every handler at once: add a route and its log line appears for free, nothing duplicated by hand. */
 function logged<T extends Record<string, unknown>>(routes: T): T {
   const wrap = (path: string, fn: Handler): Handler => async (req, srv) => {
     const t = performance.now();
@@ -105,7 +105,7 @@ function logged<T extends Record<string, unknown>>(routes: T): T {
       log(`${req.method} ${path} ${body} → ${res?.status ?? '—'} ${Math.round(performance.now() - t)}ms, в очереди ${queue.length}`);
       return res;
     } catch (e) {
-      log(`${req.method} ${path} ${body} → упал: ${e}`); // лог и дальше наверх, ответ 500 отдаст Bun
+      log(`${req.method} ${path} ${body} → упал: ${e}`); // log it, then rethrow — Bun turns it into a 500
       throw e;
     }
   };
@@ -114,12 +114,12 @@ function logged<T extends Record<string, unknown>>(routes: T): T {
       path,
       typeof h === 'function' ? wrap(path, h as Handler)
       : isMethods(h) ? Object.fromEntries(Object.entries(h).map(([m, fn]) => [m, wrap(path, fn as Handler)]))
-      : h, // index.html — это HTMLBundle, Bun отдаёт его сам
+      : h, // index.html is an HTMLBundle, Bun serves it itself
     ]),
   ) as T;
 }
 
-/** Именно по именам методов: у HTMLBundle своих ключей нет, и «все значения — функции» на нём даёт true. */
+/** Match on method names: an HTMLBundle has no own keys, so "every value is a function" is true for it. */
 const isMethods = (h: unknown): h is Record<string, Handler> =>
   !!h && typeof h === 'object' && Object.keys(h).length > 0 &&
   Object.keys(h).every(k => ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'].includes(k));
@@ -131,14 +131,14 @@ const json = (data: unknown) =>
 
 if (import.meta.main) {
   const db = openDB();
-  queue.push(...load(db)); // всё, что было до перезапуска; на чистой базе очередь пустая
+  queue.push(...load(db)); // whatever survived the restart; empty on a fresh database
   const port = Number(process.env.PORT ?? 8765);
   const url = lanURL(port);
   const qr = await QRCode.toString(url, { type: 'svg', margin: 2, color: { light: '#fff' } });
 
   const server = Bun.serve({
     port,
-    hostname: '0.0.0.0', // иначе телефоны в той же сети не достучатся
+    hostname: '0.0.0.0', // otherwise phones on the same network cannot reach it
     routes: logged({
       '/': index,
       '/qr.svg': () => new Response(qr, { headers: { 'Content-Type': 'image/svg+xml', 'Access-Control-Allow-Origin': '*' } }),
@@ -151,16 +151,16 @@ if (import.meta.main) {
         return json(await search(p.get('q') ?? '', p.get('karaoke') !== '0'));
       },
     }),
-    // Состояние раздаём по сокету, действия остаются обычным RPC поверх POST
+    // State is pushed over the socket; actions stay plain RPC over POST
     fetch: (req, srv) => (srv.upgrade(req) ? undefined : new Response('404', { status: 404 })),
     websocket: {
-      open: ws => (ws.subscribe('queue'), ws.send(JSON.stringify(queue)), log('ws + подключился')), // новый гость сразу видит очередь
+      open: ws => (ws.subscribe('queue'), ws.send(JSON.stringify(queue)), log('ws + подключился')), // a new guest sees the queue right away
       close: () => log('ws − отключился'),
       message: () => {},
     },
   });
 
-  /** Разослать очередь всем и ответить инициатору тем же. */
+  /** Broadcast the queue to everyone and answer the caller with it. */
   const push = () => (save(db, queue), server.publish('queue', JSON.stringify(queue)), json(queue));
 
   console.log(await QRCode.toString(url, { type: 'terminal', small: true }));

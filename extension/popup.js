@@ -1,5 +1,5 @@
 const btn = document.getElementById('toggle');
-const enabled = async () => (await chrome.storage.local.get('enabled')).enabled ?? true; // по умолчанию работает
+const enabled = async () => (await chrome.storage.local.get('enabled')).enabled ?? true; // on by default
 
 function paint(on) {
   btn.textContent = on ? '● Работает' : '○ Выключено';
@@ -8,7 +8,7 @@ function paint(on) {
 
 btn.onclick = async () => {
   const on = !(await enabled());
-  await chrome.storage.local.set({ enabled: on }); // content.js слушает storage — применяется сразу во всех вкладках
+  await chrome.storage.local.set({ enabled: on }); // content.js listens to storage — applies at once in every tab
   paint(on);
 };
 

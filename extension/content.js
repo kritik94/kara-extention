@@ -1,8 +1,8 @@
-// Инвариант: queue[0] — то, что должно играть сейчас. Источник правды — сервер.
-const API = 'http://127.0.0.1:8765'; // не localhost: на macOS он резолвится в ::1, где сервер не слушает
+// Invariant: queue[0] is what should be playing now. The server owns the truth.
+const API = 'http://127.0.0.1:8765'; // not localhost: on macOS it resolves to ::1, where the server does not listen
 const current = () => new URLSearchParams(location.search).get('v');
 const api = (path, body) =>
-  fetch(API + path, body === undefined ? undefined : { method: 'POST', body }) // строка в body = text/plain, без preflight
+  fetch(API + path, body === undefined ? undefined : { method: 'POST', body }) // a string body means text/plain, so no preflight
     .then(r => r.json())
     .catch(() => null);
 
@@ -17,11 +17,11 @@ panel.innerHTML = `
   </div>`;
 
 const $ = id => panel.querySelector('#kara-' + id);
-let enabled = true; // выключено из popup — расширение не трогает страницу вообще
-// Названия приходят от YouTube и от гостей — в innerHTML их нельзя пускать сырыми
+let enabled = true; // switched off in the popup — the extension leaves the page alone entirely
+// Titles come from YouTube and from guests — never feed them raw to innerHTML
 const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
 
-// Перетаскивание кнопки: pointer-события покрывают и мышь, и палец
+// Dragging the button: pointer events cover both mouse and finger
 const toggle = $('toggle');
 let drag = null;
 let dragged = false;
@@ -29,20 +29,20 @@ let dragged = false;
 const place = (x, y) => {
   panel.style.left = Math.max(0, Math.min(x, innerWidth - panel.offsetWidth)) + 'px';
   panel.style.top = Math.max(0, Math.min(y, innerHeight - panel.offsetHeight)) + 'px';
-  panel.style.right = 'auto'; // в CSS панель прижата вправо, при перетаскивании ведём по left
+  panel.style.right = 'auto'; // CSS pins the panel to the right; while dragging we drive it by left
 };
 
 toggle.onpointerdown = e => {
   const r = panel.getBoundingClientRect();
   drag = { dx: e.clientX - r.left, dy: e.clientY - r.top, sx: e.clientX, sy: e.clientY };
   dragged = false;
-  toggle.setPointerCapture(e.pointerId); // не теряем кнопку, если курсор ушёл за её край
+  toggle.setPointerCapture(e.pointerId); // keeps the button even if the cursor leaves its edge
 };
 
 toggle.onpointermove = e => {
   if (!drag) return;
-  dragged ||= Math.hypot(e.clientX - drag.sx, e.clientY - drag.sy) > 4; // порог, иначе дрожь руки съест клик
-  if (dragged) place(e.clientX - drag.dx, e.clientY - drag.dy), placeBody(); // меню едет за кнопкой
+  dragged ||= Math.hypot(e.clientX - drag.sx, e.clientY - drag.sy) > 4; // threshold, otherwise a shaky hand eats the click
+  if (dragged) place(e.clientX - drag.dx, e.clientY - drag.dy), placeBody(); // the menu follows the button
 };
 
 toggle.onpointerup = () => {
@@ -52,7 +52,7 @@ toggle.onpointerup = () => {
 
 const GAP = 8;
 
-/** Держим меню в окне: прижимаем к правому краю кнопки, при нехватке места снизу — раскрываем вверх. */
+/** Keeps the menu on screen: aligned to the button's right edge, flipped upwards when there is no room below. */
 function placeBody() {
   const body = $('body');
   if (body.hidden) return;
@@ -67,7 +67,7 @@ function placeBody() {
 toggle.onclick = () => {
   if (dragged) return;
   $('body').hidden = !$('body').hidden;
-  placeBody(); // считаем после показа: у скрытого элемента нет размеров
+  placeBody(); // measure after unhiding: a hidden element has no size
 };
 
 addEventListener('resize', placeBody);
@@ -76,45 +76,45 @@ $('big').onclick = async () => chrome.storage.local.set({ big: !(await chrome.st
 $('list').onclick = async e => { if (e.target.dataset.key) render(await api('/remove', e.target.dataset.key)); };
 
 function render(queue) {
-  if (!queue) return ($('list').innerHTML = '<li>сервер недоступен</li>'); // молчим и играем дальше
+  if (!queue) return ($('list').innerHTML = '<li>сервер недоступен</li>'); // stay quiet and keep playing
   $('list').innerHTML = queue
     .map((s, i) => `<li>${i ? '' : '▶ '}${esc(s.title)} <button data-key="${esc(s.key)}">✕</button></li>`)
     .join('');
   if (enabled && queue[0] && queue[0].id !== current()) location.href = `https://www.youtube.com/watch?v=${queue[0].id}`;
 }
 
-// Кольцо вокруг кнопки = сколько песни отыграно
+// The ring around the button shows how much of the song has played
 document.addEventListener('timeupdate', e => {
   const v = e.target;
-  if (v.tagName !== 'VIDEO' || !v.duration) return; // у рекламы и до загрузки метаданных duration = NaN
+  if (v.tagName !== 'VIDEO' || !v.duration) return; // duration is NaN during ads and before metadata loads
   panel.style.setProperty('--p', v.currentTime / v.duration);
 }, true);
 
-// ended не всплывает, но ловится на capture-фазе — не надо ждать появления <video>
+// ended does not bubble but is caught in the capture phase — no need to wait for <video> to appear
 document.addEventListener('ended', async e => {
   if (!enabled || e.target.tagName !== 'VIDEO') return;
-  if (document.querySelector('.ad-showing')) return; // реклама играет в том же <video>
-  render(await api('/skip', current())); // id — чтобы не снять чужую голову очереди
+  if (document.querySelector('.ad-showing')) return; // ads play in the very same <video>
+  render(await api('/skip', current())); // send the id so we never drop someone else's head of the queue
 }, true);
 
 const syncBig = async () => {
   const { big, pos, enabled: saved } = await chrome.storage.local.get(['big', 'pos', 'enabled']);
-  enabled = saved ?? true; // рубильник из popup: и логика, и кнопка на экране
+  enabled = saved ?? true; // the popup switch controls both the logic and the on-screen button
   panel.hidden = !enabled;
   document.documentElement.classList.toggle('kara-big', !!big);
-  if (pos && panel.isConnected) place(pos.x, pos.y); // позиция переживает переход к следующей песне
+  if (pos && panel.isConnected) place(pos.x, pos.y); // the position survives the jump to the next song
 };
 chrome.storage.onChanged.addListener(syncBig);
 syncBig();
 
 document.addEventListener('DOMContentLoaded', () => (document.body.append(panel), syncBig()), { once: true });
-// <img src="http://..."> со страницы HTTPS Chrome блокирует как mixed content, а fetch — нет
+// Chrome blocks <img src="http://..."> from an HTTPS page as mixed content, but not fetch
 fetch(API + '/qr.svg')
   .then(r => r.text())
   .then(svg => ($('qr').innerHTML = svg))
   .catch(() => {});
 
-// Состояние приходит по сокету; действия — обычные POST выше
+// State arrives over the socket; actions are the plain POSTs above
 (function connect() {
   const ws = new WebSocket(API.replace('http', 'ws') + '/ws');
   ws.onmessage = e => render(JSON.parse(e.data));

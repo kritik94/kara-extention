@@ -14,14 +14,14 @@ test('skip снимает голову только если id совпал', (
   expect(queue.length).toBe(2);
   skip('a');
   expect(queue.map(s => s.id)).toEqual(['b']);
-  skip(); // пустая очередь не падает после очистки ниже
+  skip(); // an empty queue must not throw
 });
 
 test('remove по ключу переживает сдвиг очереди', () => {
   queue.length = 0;
   queue.push({ key: 'k1', id: 'a', title: 'A' }, { key: 'k2', id: 'b', title: 'B' }, { key: 'k3', id: 'c', title: 'C' });
-  queue.shift();                       // кто-то допел, индексы уехали
-  remove('k3');                        // гость целился в третью — попал в неё, а не в соседа
+  queue.shift();                       // someone finished singing, indices shifted
+  remove('k3');                        // the guest aimed at the third song and hit it, not its neighbour
   expect(queue.map(s => s.id)).toEqual(['b']);
   remove('такого-нет');
   expect(queue.length).toBe(1);
@@ -53,6 +53,6 @@ test('очередь переживает перезапуск: порядок �
   save(db, songs);
   expect(load(db)).toEqual(songs);
 
-  save(db, [songs[1]]); // спели первую — в базе остаётся только вторая, а не обе
+  save(db, [songs[1]]); // first song is done: only the second one stays, not both
   expect(load(db)).toEqual([songs[1]]);
 });

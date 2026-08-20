@@ -14,14 +14,14 @@ function App() {
   const [qr, setQr] = useState(false);
   const [copied, setCopied] = useState(false);
 
-  // Очередь принадлежит серверу: сокет присылает состояние, рисуем то, что пришло
+  // The queue belongs to the server: the socket pushes state, we render whatever arrived
   useEffect(() => {
     let ws: WebSocket;
     let retry: ReturnType<typeof setTimeout>;
     const connect = () => {
       ws = new WebSocket(`${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}/ws`);
       ws.onmessage = e => setQueue(JSON.parse(e.data));
-      ws.onclose = () => (retry = setTimeout(connect, 2000)); // телефон уснул или сервер моргнул
+      ws.onclose = () => (retry = setTimeout(connect, 2000)); // the phone went to sleep or the server blinked
     };
     connect();
     return () => (clearTimeout(retry), (ws.onclose = null), ws.close());
@@ -33,10 +33,10 @@ function App() {
       () => fetch(`/search?q=${encodeURIComponent(q)}&karaoke=${karaoke ? 1 : 0}`).then(r => r.json()).then(setFound),
       300,
     );
-    return () => clearTimeout(t); // отменяем прошлый запрос при новой букве и при смене галочки
+    return () => clearTimeout(t); // drop the pending request on every keystroke and on toggling the checkbox
   }, [q, karaoke]);
 
-  /** clipboard API живёт только в защищённом контексте, а гости заходят по http — отсюда откат. */
+  /** The clipboard API needs a secure context, but guests arrive over http — hence the fallback. */
   const copyLink = async () => {
     try {
       if (!navigator.clipboard) throw new Error('нет clipboard на http');
