@@ -19,6 +19,7 @@ function App() {
   const [found, setFound] = useState<Found[]>([]);
   const [karaoke, setKaraoke] = useState(true);
   const [copied, setCopied] = useState(false);
+  const [added, setAdded] = useState<string[]>([]); // ids the + has just accepted, for a second and a half
   // The server owns name and colour; the copies here just fill the menu after a reload
   const [nick, setNick] = useState(localStorage.nick ?? '');
   const [color, setColor] = useState(localStorage.color ?? '');
@@ -72,10 +73,17 @@ function App() {
     setTimeout(() => setCopied(false), 1500);
   };
 
-  // The search stays where it is: one search usually holds more than one song worth queueing,
-  // and the queue redrawing below is the confirmation. The ✕ clears it when the guest is done.
+  /** The search stays where it is: one search usually holds more than one song worth queueing,
+   *  and the ✕ clears it when the guest is done. That leaves the + owing the tap an answer —
+   *  the queue below is the real confirmation, but on a phone it is a scroll away. */
   const addSong = (s: Found) =>
-    post(`/add?title=${encodeURIComponent(s.title)}&uid=${uid}`, `https://youtu.be/${s.id}`).then(setQueue);
+    post(`/add?title=${encodeURIComponent(s.title)}&uid=${uid}`, `https://youtu.be/${s.id}`)
+      .then(setQueue)
+      .then(() => {
+        // The tick rides in behind the queue, so it never claims an add that did not happen
+        setAdded(a => (a.includes(s.id) ? a : [...a, s.id]));
+        setTimeout(() => setAdded(a => a.filter(id => id !== s.id)), 1500);
+      });
 
   return (
     <>
@@ -171,13 +179,22 @@ function App() {
           {q.trim() && (
             <>
               <h2>Найдено</h2>
-              {found.map(s => (
-                <div className="row" key={s.id}>
-                  <img src={thumb(s.id)} />
-                  <div className="t">{s.title}</div>
-                  <button onClick={() => addSong(s)}>+</button>
-                </div>
-              ))}
+              {found.map(s => {
+                const ok = added.includes(s.id);
+                return (
+                  <div className="row" key={s.id}>
+                    <img src={thumb(s.id)} />
+                    <div className="t">{s.title}</div>
+                    <button
+                      className={ok ? 'ok' : undefined}
+                      aria-label={ok ? 'Добавлено' : 'Добавить'}
+                      onClick={() => addSong(s)}
+                    >
+                      {ok ? '✓' : '+'}
+                    </button>
+                  </div>
+                );
+              })}
             </>
           )}
           <h2>Очередь</h2>
