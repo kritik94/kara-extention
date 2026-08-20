@@ -21,6 +21,7 @@
   "scripts": {
     "dev": "bun --hot server.ts",
     "start": "bun server.ts",
-    "build:win": "bun build server.ts --compile --target=bun-windows-x64 --outfile ../kara.exe"
+    "build:win": "bun build server.ts --compile --target=bun-windows-x64 --outfile ../builds/kara.exe",
+    "build:mac": "bun build server.ts --compile --outfile ../builds/kara"
   }
 }
