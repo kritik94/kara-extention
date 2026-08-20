@@ -17,6 +17,7 @@ panel.innerHTML = `
   </div>`;
 
 const $ = id => panel.querySelector('#kara-' + id);
+let enabled = true; // выключено из popup — расширение не трогает страницу вообще
 // Названия приходят от YouTube и от гостей — в innerHTML их нельзя пускать сырыми
 const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
 
@@ -79,7 +80,7 @@ function render(queue) {
   $('list').innerHTML = queue
     .map((s, i) => `<li>${i ? '' : '▶ '}${esc(s.title)} <button data-key="${esc(s.key)}">✕</button></li>`)
     .join('');
-  if (queue[0] && queue[0].id !== current()) location.href = `https://www.youtube.com/watch?v=${queue[0].id}`;
+  if (enabled && queue[0] && queue[0].id !== current()) location.href = `https://www.youtube.com/watch?v=${queue[0].id}`;
 }
 
 // Кольцо вокруг кнопки = сколько песни отыграно
@@ -91,13 +92,15 @@ document.addEventListener('timeupdate', e => {
 
 // ended не всплывает, но ловится на capture-фазе — не надо ждать появления <video>
 document.addEventListener('ended', async e => {
-  if (e.target.tagName !== 'VIDEO') return;
+  if (!enabled || e.target.tagName !== 'VIDEO') return;
   if (document.querySelector('.ad-showing')) return; // реклама играет в том же <video>
   render(await api('/skip', current())); // id — чтобы не снять чужую голову очереди
 }, true);
 
 const syncBig = async () => {
-  const { big, pos } = await chrome.storage.local.get(['big', 'pos']);
+  const { big, pos, enabled: saved } = await chrome.storage.local.get(['big', 'pos', 'enabled']);
+  enabled = saved ?? true; // рубильник из popup: и логика, и кнопка на экране
+  panel.hidden = !enabled;
   document.documentElement.classList.toggle('kara-big', !!big);
   if (pos && panel.isConnected) place(pos.x, pos.y); // позиция переживает переход к следующей песне
 };

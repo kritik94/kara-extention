@@ -3,7 +3,6 @@ import QRCode from 'qrcode';
 import { nanoid } from 'nanoid';
 import { Database } from 'bun:sqlite'; // встроен в Bun, отдельной зависимости не нужно
 import { networkInterfaces } from 'node:os';
-import list from '../docs/list.txt' with { type: 'text' }; // вшивается в бинарник при --compile
 
 /** key — своя личность записи: одна песня может стоять в очереди дважды. */
 export type Found = { id: string; title: string };          // результат поиска
@@ -132,9 +131,7 @@ const json = (data: unknown) =>
 
 if (import.meta.main) {
   const db = openDB();
-  const restored = load(db);
-  if (restored.length) queue.push(...restored); // очередь пережила перезапуск
-  else await add(list); // первый запуск на чистой базе — берём стартовый список
+  queue.push(...load(db)); // всё, что было до перезапуска; на чистой базе очередь пустая
   const port = Number(process.env.PORT ?? 8765);
   const url = lanURL(port);
   const qr = await QRCode.toString(url, { type: 'svg', margin: 2, color: { light: '#fff' } });
@@ -168,6 +165,5 @@ if (import.meta.main) {
 
   console.log(await QRCode.toString(url, { type: 'terminal', small: true }));
   console.log(`экран: http://127.0.0.1:${port}   телефоны: ${url}`);
-  console.log(`база: ${process.env.KARA_DB ?? 'kara.db'}${restored.length ? ' (очередь восстановлена)' : ''}`);
-  console.log('очередь:', queue.map(s => s.title));
+  console.log(`база: ${process.env.KARA_DB ?? 'kara.db'}, песен в очереди: ${queue.length}`);
 }
