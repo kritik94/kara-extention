@@ -24,7 +24,7 @@ function App() {
   const [color, setColor] = useState(localStorage.color ?? '');
   const [edit, setEdit] = useState(false);
   const [palette, setPalette] = useState(false);
-  const [tab, setTab] = useState<'queue' | 'me'>('queue');
+  const [tab, setTab] = useState<'queue' | 'find' | 'me'>('queue');
 
   const saveMe = (n: string, c: string) => {
     localStorage.nick = n;
@@ -73,7 +73,6 @@ function App() {
   };
 
   const addSong = (s: Found) => {
-    setQ('');
     post(`/add?title=${encodeURIComponent(s.title)}&uid=${uid}`, `https://youtu.be/${s.id}`).then(setQueue);
   };
 
@@ -81,6 +80,7 @@ function App() {
     <>
       <div className="tabs">
         <button className={tab === 'queue' ? 'tab on' : 'tab'} onClick={() => setTab('queue')}>Очередь</button>
+        <button className={tab === 'find' ? 'tab on' : 'tab'} onClick={() => setTab('find')}>Поиск</button>
         <button className={tab === 'me' ? 'tab on' : 'tab'} onClick={() => setTab('me')}>Профиль</button>
         {/* <details> holds the open/closed state — no useState, and Esc/outside taps stay the browser's job */}
         <details className="drop">
@@ -113,7 +113,7 @@ function App() {
         </details>
       </div>
 
-      {tab === 'me' ? (
+      {tab === 'me' && (
         <div className="field">
           <span>Имя</span>
           <div className="line">
@@ -158,7 +158,9 @@ function App() {
             </div>
           )}
         </div>
-      ) : (
+      )}
+
+      {tab === 'find' && (
         <>
           <div className="search">
             <input value={q} onChange={e => setQ(e.target.value)} placeholder="Название песни или ссылка" />
@@ -171,15 +173,25 @@ function App() {
           {q.trim() && (
             <>
               <h2>Найдено</h2>
-              {found.map(s => (
-                <div className="row" key={s.id}>
-                  <img src={thumb(s.id)} />
-                  <div className="t">{s.title}</div>
-                  <button onClick={() => addSong(s)}>+</button>
-                </div>
-              ))}
+              {found.map(s => {
+                // the queue that comes back from /add is the whole state — its index is the position, no extra flag
+                const pos = queue.findIndex(x => x.id === s.id);
+                return (
+                  <div className="row" key={s.id}>
+                    <img src={thumb(s.id)} />
+                    <div className="t">{s.title}</div>
+                    {pos >= 0 && <span className="pos">{pos === 0 ? 'сейчас' : `#${pos + 1}`}</span>}
+                    <button onClick={() => addSong(s)} disabled={pos >= 0}>{pos >= 0 ? '✓' : '+'}</button>
+                  </div>
+                );
+              })}
             </>
           )}
+        </>
+      )}
+
+      {tab === 'queue' && (
+        <>
           <h2>Очередь</h2>
           {queue.length === 0 && <div className="t">Пусто — добавь песню</div>}
           {queue.map((s, i) => (

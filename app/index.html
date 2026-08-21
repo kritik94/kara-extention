@@ -13,7 +13,7 @@
   .only input { width: 18px; height: 18px; }
   /* position: relative on the tab strip: the share sheet lines up with its right edge */
   .tabs { position: relative; display: flex; align-items: center; gap: 8px; margin-bottom: 12px; }
-  .tab { background: #1c1c1c; color: #888; }
+  .tab { padding: 10px 12px; font-size: 14px; background: #1c1c1c; color: #888; }
   .tab.on { background: #333; color: #eee; }
   .tabs .drop { margin-left: auto; }
   .nick { color: #888; font-size: 13px; margin-top: 2px; }
@@ -40,7 +40,9 @@
   .row { display: flex; gap: 10px; align-items: center; padding: 8px 0; border-bottom: 1px solid #262626; }
   .row img { width: 88px; border-radius: 6px; }
   .row .t { flex: 1; font-size: 14px; line-height: 1.3; }
+  .pos { flex: none; font-size: 13px; color: #888; }
   button { padding: 10px 14px; font-size: 15px; border-radius: 8px; border: 0; background: #333; color: #eee; cursor: pointer; }
+  .row button:disabled { background: #1c1c1c; color: #4ade80; cursor: default; }
   .now { color: #f33; font-weight: 600; }
 </style>
 <div id="root"></div>
