@@ -1,29 +1,40 @@
 <!doctype html>
 <meta charset="utf-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1" />
+<!-- interactive-widget: the keyboard shrinks the viewport instead of covering the search field -->
+<meta name="viewport" content="width=device-width, initial-scale=1, interactive-widget=resizes-content" />
 <title>Караоке</title>
 <style>
   :root { color-scheme: dark; }
-  body { margin: 0; padding: 16px; font: 16px system-ui; background: #111; color: #eee; }
+  body { margin: 0; font: 16px system-ui; background: #111; color: #eee; }
+  /* dvh, not vh: on a phone the address bar slides away and vh would push the bar off the screen */
+  #root { display: flex; flex-direction: column; height: 100dvh; }
+  .page { flex: 1; min-height: 0; overflow-y: auto; padding: 16px; }
+  /* column-reverse does two jobs at once: the DOM order renders bottom-up and the scroll sticks to the bottom */
+  .page.rev { display: flex; flex-direction: column-reverse; }
+  .page.rev h2 { margin: 8px 0 24px; } /* the heading now sits under its list, so the big gap moves to the other side */
+  .bar { padding: 10px 16px calc(10px + env(safe-area-inset-bottom)); background: #111; border-top: 1px solid #262626; }
   input { width: 100%; padding: 14px; font-size: 17px; box-sizing: border-box; border-radius: 10px; border: 1px solid #444; background: #1c1c1c; color: #eee; }
-  .search { position: relative; margin-bottom: 10px; }
-  .search input { padding-right: 46px; }
+  .search { position: relative; margin-bottom: 8px; }
+  /* 16px is the floor: any smaller and iOS zooms the page in on focus */
+  .search input { padding: 9px 40px 9px 12px; font-size: 16px; -webkit-appearance: none; }
+  .search input::-webkit-search-cancel-button { display: none; } /* our own ✕ is already there */
   .clear { position: absolute; right: 6px; top: 50%; transform: translateY(-50%); background: none; color: #888; font-size: 18px; padding: 6px 10px; }
   .only { display: flex; margin: 10px 0; align-items: center; gap: 8px; color: #aaa; font-size: 14px; }
   .only input { width: 18px; height: 18px; }
   /* position: relative on the tab strip: the share sheet lines up with its right edge */
-  .tabs { position: relative; display: flex; align-items: center; gap: 8px; margin-bottom: 12px; }
+  .tabs { position: relative; display: flex; align-items: center; gap: 8px; }
   .tab { padding: 10px 12px; font-size: 14px; background: #1c1c1c; color: #888; }
   .tab.on { background: #333; color: #eee; }
   .tabs .drop { margin-left: auto; }
-  .emoji { display: flex; gap: 8px; margin-bottom: 12px; }
+  .emoji { display: flex; gap: 8px; margin-bottom: 10px; }
   .emoji button { flex: 1; padding: 8px 0; font-size: 24px; line-height: 1.2; background: #1c1c1c; }
   .emoji button:active { background: #333; transform: scale(.92); }
   .nick { color: #888; font-size: 13px; margin-top: 2px; }
   .drop summary { list-style: none; display: flex; padding: 10px 14px; font-size: 15px; line-height: 1; border-radius: 8px; background: #333; cursor: pointer; }
   .drop summary::-webkit-details-marker { display: none; }
   .drop[open] summary { background: #444; }
-  .sheet { position: absolute; right: 0; top: calc(100% + 8px); z-index: 10;
+  /* opens upwards: the strip it hangs off now sits at the bottom edge of the screen */
+  .sheet { position: absolute; right: 0; bottom: calc(100% + 8px); z-index: 10;
     width: 280px; max-width: calc(100vw - 32px); padding: 12px;
     background: #1c1c1c; border: 1px solid #333; border-radius: 10px; }
   .field { color: #aaa; font-size: 14px; }
