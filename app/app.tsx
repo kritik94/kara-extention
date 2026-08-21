@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 
 type Found = { id: string; title: string };
-type Song = Found & { key: string; nick?: string; color?: string };
+type Song = Found & { key: string; uid?: string; nick?: string; color?: string };
 const thumb = (id: string) => `https://i.ytimg.com/vi/${id}/mqdefault.jpg`;
 const post = (path: string, body?: string) => fetch(path, { method: 'POST', body }).then(r => r.json());
 
@@ -26,6 +26,8 @@ function App() {
   const [palette, setPalette] = useState(false);
   const [tab, setTab] = useState<'queue' | 'find' | 'me'>('queue');
   /** Last few queries that actually led to a song — kept per browser, the server has no business knowing them. */
+  /** A guard against fat fingers, not a permission: /remove still takes anyone's word for it. */
+  const [others, setOthers] = useState(localStorage.others === '1');
   const [history, setHistory] = useState<string[]>(() => { try { return JSON.parse(localStorage.history ?? '[]'); } catch { return []; } });
 
   const saveMe = (n: string, c: string) => {
@@ -162,6 +164,14 @@ function App() {
               ))}
             </div>
           )}
+          <label className="only">
+            <input
+              type="checkbox"
+              checked={others}
+              onChange={e => (setOthers(e.target.checked), (localStorage.others = e.target.checked ? '1' : ''))}
+            />
+            управлять чужими песнями
+          </label>
         </div>
       )}
 
@@ -179,7 +189,7 @@ function App() {
             <>
               <h2>Недавний поиск</h2>
               {history.map(h => (
-                <button className="hist" key={h} onClick={() => setQ(h)}>{h}</button>
+                <button className="row hist" key={h} onClick={() => setQ(h)}>{h}</button>
               ))}
             </>
           )}
@@ -215,9 +225,11 @@ function App() {
                 {s.title}
                 {s.nick && <div className="nick" style={{ color: s.color }}>{s.nick}</div>}
               </div>
-              <button onClick={() => post('/remove', s.key).then(setQueue)}>
-                {i === 0 ? '⏭' : '✕'}
-              </button>
+              {(others || s.uid === uid) && (
+                <button onClick={() => post('/remove', s.key).then(setQueue)}>
+                  {i === 0 ? '⏭' : '✕'}
+                </button>
+              )}
             </div>
           ))}
         </>
