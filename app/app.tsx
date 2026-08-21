@@ -25,6 +25,8 @@ function App() {
   const [edit, setEdit] = useState(false);
   const [palette, setPalette] = useState(false);
   const [tab, setTab] = useState<'queue' | 'find' | 'me'>('queue');
+  /** Last few queries that actually led to a song — kept per browser, the server has no business knowing them. */
+  const [history, setHistory] = useState<string[]>(() => { try { return JSON.parse(localStorage.history ?? '[]'); } catch { return []; } });
 
   const saveMe = (n: string, c: string) => {
     localStorage.nick = n;
@@ -73,6 +75,9 @@ function App() {
   };
 
   const addSong = (s: Found) => {
+    const h = [q.trim(), ...history.filter(x => x !== q.trim())].slice(0, 8);
+    localStorage.history = JSON.stringify(h);
+    setHistory(h);
     post(`/add?title=${encodeURIComponent(s.title)}&uid=${uid}`, `https://youtu.be/${s.id}`).then(setQueue);
   };
 
@@ -170,6 +175,14 @@ function App() {
             <input type="checkbox" checked={karaoke} onChange={e => setKaraoke(e.target.checked)} />
             только караоке
           </label>
+          {!q.trim() && history.length > 0 && (
+            <>
+              <h2>Недавний поиск</h2>
+              {history.map(h => (
+                <button className="hist" key={h} onClick={() => setQ(h)}>{h}</button>
+              ))}
+            </>
+          )}
           {q.trim() && (
             <>
               <h2>Найдено</h2>
