@@ -9,6 +9,9 @@ const post = (path: string, body?: string) => fetch(path, { method: 'POST', body
 /** Who this browser is. randomUUID needs a secure context and guests arrive over plain http — getRandomValues does not. */
 const uid = (localStorage.uid ??= crypto.getRandomValues(new Uint32Array(4)).join('-'));
 
+/** Same five as the server's whitelist — anything else comes back 400. */
+const EMOJI = ['🔥', '👏', '❤️', '😂', '🎉'];
+
 /** Tailwind's 400 shades: all sixteen stay readable on the dark background. */
 const PALETTE = ['#f87171', '#fb923c', '#fbbf24', '#facc15', '#a3e635', '#4ade80', '#34d399', '#2dd4bf',
                  '#38bdf8', '#60a5fa', '#818cf8', '#a78bfa', '#c084fc', '#e879f9', '#f472b6', '#fb7185'];
@@ -42,7 +45,10 @@ function App() {
     let retry: ReturnType<typeof setTimeout>;
     const connect = () => {
       ws = new WebSocket(`${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}/ws`);
-      ws.onmessage = e => setQueue(JSON.parse(e.data));
+      ws.onmessage = e => {
+        const m = JSON.parse(e.data);
+        if (Array.isArray(m)) setQueue(m); // anything else is an emoji, and those fly on the screen, not here
+      };
       ws.onclose = () => (retry = setTimeout(connect, 2000)); // the phone went to sleep or the server blinked
     };
     connect();
@@ -118,6 +124,12 @@ function App() {
             </div>
           </div>
         </details>
+      </div>
+
+      <div className="emoji">
+        {EMOJI.map(e => (
+          <button key={e} onClick={() => post(`/emoji?uid=${uid}`, e)} aria-label={`Отправить ${e}`}>{e}</button>
+        ))}
       </div>
 
       {tab === 'me' && (

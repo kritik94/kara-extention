@@ -26,6 +26,9 @@ export const setMe = (uid: string, nick?: string, color?: string) => {
 
 export const withUsers = (songs: Song[]) => songs.map(s => ({ ...s, ...users.get(s.uid ?? '') }));
 
+/** Five taps, nothing stored: an emoji is a moment on the screen, not state. */
+export const EMOJI = ['🔥', '👏', '❤️', '😂', '🎉'];
+
 export const ids = (text: string) =>
   [...text.matchAll(/(?:v=|youtu\.be\/|shorts\/)([\w-]{11})/g)].map(m => m[1]);
 
@@ -191,6 +194,15 @@ if (import.meta.main) {
           if (!uid) return new Response('нужен uid', { status: 400 });
           saveUser(db, uid, setMe(uid, p.get('nick') ?? undefined, p.get('color') ?? undefined));
           return push(); // everyone's copy of the queue shows the new name right away
+        },
+      },
+      '/emoji': {
+        POST: async req => {
+          const e = await req.text();
+          if (!EMOJI.includes(e)) return new Response('не та эмодзи', { status: 400 });
+          const me = users.get(new URL(req.url).searchParams.get('uid') ?? '') ?? {}; // nameless guests fly without a label
+          server.publish('queue', JSON.stringify({ emoji: e, ...me })); // a message, not the queue: the clients tell them apart by shape
+          return json({ ok: true });
         },
       },
       '/skip': { POST: async req => (skip((await req.text()) || undefined), push()) },

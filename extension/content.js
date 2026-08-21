@@ -17,7 +17,8 @@ panel.innerHTML = `
     <ol id="kara-list"></ol>
     <div id="kara-qr" title="QR на страницу очереди"></div>
   </div>
-  <div id="kara-next" hidden></div>`;
+  <div id="kara-next" hidden></div>
+  <div id="kara-emojis"></div>`;
 
 const $ = id => panel.querySelector('#kara-' + id);
 let enabled = true; // switched off in the popup — the extension leaves the page alone entirely
@@ -83,6 +84,17 @@ $('big').onclick = async () => chrome.storage.local.set({ big: !(await chrome.st
 $('notify').onclick = () => chrome.storage.local.set({ notify: !notify }); // syncBig() repaints through storage.onChanged
 $('list').onclick = async e => { if (e.target.dataset.key) render(await api('/remove', e.target.dataset.key)); };
 
+/** One tap on a phone, one emoji floating up the left edge signed by its sender — a message, not just a decoration.
+ *  Nothing to clean up: it removes itself when the animation ends. */
+function fly(m) {
+  const el = document.createElement('span');
+  el.innerHTML = esc(m.emoji) + who(m); // who() escapes the nick and paints it in the guest's colour
+  el.style.left = 24 + Math.random() * 40 + 'px'; // jitter, so two taps at once do not land on top of each other
+  el.style.setProperty('--x', (Math.random() * 2 - 1).toFixed(2)); // slight sideways drift
+  el.onanimationend = () => el.remove();
+  $('emojis').append(el);
+}
+
 function render(queue) {
   if (!queue) return ($('list').innerHTML = '<li>сервер недоступен</li>'); // stay quiet and keep playing
   const card = (s, label) => (s ? `${label}: ${esc(s.title)}${who(s)}` : '');
@@ -139,6 +151,9 @@ fetch(API + '/qr.svg')
 // State arrives over the socket; actions are the plain POSTs above
 (function connect() {
   const ws = new WebSocket(API.replace('http', 'ws') + '/ws');
-  ws.onmessage = e => render(JSON.parse(e.data));
+  ws.onmessage = e => {
+    const m = JSON.parse(e.data);
+    Array.isArray(m) ? render(m) : fly(m); // the queue is an array, an emoji is an object
+  };
   ws.onclose = () => (render(null), setTimeout(connect, 2000));
 })();

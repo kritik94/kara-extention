@@ -102,3 +102,16 @@ html.kara-big .iv-branding { display: none !important; }
 @keyframes kara-in { from { opacity: 0; transform: translate(-50%, -12px); } }
 
 #kara-body button.on { color: #9df2a6; background: rgba(62,207,74,.16); border-color: rgba(62,207,74,.55); }
+
+/* Emoji from the phones, Google-Meet style: up the left edge, signed by whoever tapped.
+   Inside #kara so kara-big's visibility blackout spares them. */
+#kara-emojis { position: fixed; inset: 0; overflow: hidden; pointer-events: none; }
+#kara-emojis span { position: absolute; bottom: -1em; left: 24px; /* content.js jitters the exact left */
+  font-size: 40px; line-height: 1; white-space: nowrap; text-shadow: 0 2px 8px rgba(0,0,0,.8);
+  animation: kara-fly 4s ease-out forwards; }
+#kara-emojis i { font-size: 17px; font-style: normal; color: #ddd; vertical-align: middle; }
+@keyframes kara-fly {
+  from { opacity: 0; transform: translate(0, 0) scale(.5); }
+  10% { opacity: 1; }
+  to { opacity: 0; transform: translate(calc(var(--x, 0) * 40px), -85vh) scale(1.1); }
+}
