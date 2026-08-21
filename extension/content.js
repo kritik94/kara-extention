@@ -1,8 +1,9 @@
 // Invariant: queue[0] is what should be playing now. The server owns the truth.
 const API = 'http://127.0.0.1:8765'; // not localhost: on macOS it resolves to ::1, where the server does not listen
 const current = () => new URLSearchParams(location.search).get('v');
-const api = (path, body) =>
-  fetch(API + path, body === undefined ? undefined : { method: 'POST', body }) // a string body means text/plain, so no preflight
+// Every route here is an action, and every action is a POST — /skip with no id means "skip whatever is playing"
+const api = (path, body = '') =>
+  fetch(API + path, { method: 'POST', body }) // a string body means text/plain, so no preflight
     .then(r => r.json())
     .catch(() => null);
 
