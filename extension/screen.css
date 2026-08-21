@@ -59,6 +59,9 @@ html.kara-big video.html5-main-video {
   transition: background .15s, border-color .15s; }
 #kara-body button:hover { background: #3a3a3a; border-color: rgba(255,255,255,.3); }
 #kara-body button:active { background: #222; }
+/* The number sits next to its switch, so it gets the button's skin and only as much width as it needs */
+#kara-body input { flex: 0 0 56px; width: 56px; padding: 9px 8px; font: inherit; color: #eee; text-align: center;
+  background: #2b2b2b; border: 1px solid rgba(255,255,255,.14); border-radius: 8px; }
 
 #kara-list { max-height: 240px; overflow-y: auto; margin: 0; padding-left: 22px; }
 #kara-list li { padding: 6px 0; line-height: 1.35; border-bottom: 1px solid rgba(255,255,255,.07); }

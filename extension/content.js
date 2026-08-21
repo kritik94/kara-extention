@@ -14,6 +14,7 @@ panel.innerHTML = `
   <div id="kara-body" hidden>
     <p><button id="kara-skip">Пропустить</button><button id="kara-big">Во весь экран</button></p>
     <p><button id="kara-notify" title="Кто поёт и кто следующий: 10 секунд до конца песни и 10 после начала новой">Объявлять песни</button></p>
+    <p><button id="kara-fair" title="Выключено — простая очередь, кто раньше добавил. Включено — одному гостю достаётся не больше N песен подряд, дальше пускают следующего. Уже стоящие песни не переставляются: правило встречает только новые">Честная очередь</button><input id="kara-n" type="number" min="1" max="10" value="3" title="Сколько песен подряд достаётся одному гостю"></p>
     <ol id="kara-list"></ol>
     <div id="kara-qr" title="QR на страницу очереди"></div>
   </div>
@@ -82,6 +83,14 @@ addEventListener('resize', placeBody);
 $('skip').onclick = async () => render(await api('/skip'));
 $('big').onclick = async () => chrome.storage.local.set({ big: !(await chrome.storage.local.get('big')).big });
 $('notify').onclick = () => chrome.storage.local.set({ notify: !notify }); // syncBig() repaints through storage.onChanged
+
+// Lives on the server, not in chrome.storage: it is one setting for the whole party, not for this browser.
+// Zero means off, so one number carries both the mode and the count; the field keeps the last one typed.
+let gen = 0;
+const showGen = n => ($('fair').classList.toggle('on', (gen = n) > 0), gen && ($('n').value = gen));
+const sendGen = async n => { const d = await api('/gen', String(n)); if (d) showGen(d.gen); };
+$('fair').onclick = () => sendGen(gen > 0 ? 0 : Number($('n').value) || 3);
+$('n').onchange = () => sendGen(Number($('n').value) || 3); // typing a number also switches fairness on
 $('list').onclick = async e => { if (e.target.dataset.key) render(await api('/remove', e.target.dataset.key)); };
 
 /** One tap on a phone, one emoji floating up the left edge signed by its sender — a message, not just a decoration.
@@ -142,6 +151,8 @@ chrome.storage.onChanged.addListener(syncBig);
 syncBig();
 
 document.addEventListener('DOMContentLoaded', () => (document.body.append(panel), syncBig()), { once: true });
+fetch(API + '/gen').then(r => r.json()).then(d => showGen(d.gen)).catch(() => {}); // server is down: the button stays off
+
 // Chrome blocks <img src="http://..."> from an HTTPS page as mixed content, but not fetch
 fetch(API + '/qr.svg')
   .then(r => r.text())

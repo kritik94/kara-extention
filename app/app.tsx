@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 
 type Found = { id: string; title: string };
-type Song = Found & { key: string; uid?: string; nick?: string; color?: string };
+type Song = Found & { key: string; uid: string; nick?: string; color?: string };
 const thumb = (id: string) => `https://i.ytimg.com/vi/${id}/mqdefault.jpg`;
 const post = (path: string, body?: string) => fetch(path, { method: 'POST', body }).then(r => r.json());
 
@@ -93,7 +93,8 @@ function App() {
     <>
       {/* The only thing that scrolls: the bar below stays put no matter how long the queue is.
           Search reads like a chat — the field at the bottom under the thumb, the best match right above it. */}
-      <div className={tab === 'find' ? 'page rev' : 'page'}>
+      {/* key={tab}: a fresh element per tab, so a scrolled queue doesn't leave the next tab scrolled out of view */}
+      <div key={tab} className={tab === 'find' ? 'page rev' : 'page'}>
         {tab === 'me' && (
           <div className="field">
             <span>Имя</span>
