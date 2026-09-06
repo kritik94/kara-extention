@@ -3,8 +3,10 @@ import { createRoot } from 'react-dom/client';
 
 type Found = { id: string; title: string };
 type Song = Found & { key: string; uid: string; nick?: string; color?: string };
+type Sung = Song & { status: string; done: number | null }; // a row of the evening's history
 const thumb = (id: string) => `https://i.ytimg.com/vi/${id}/mqdefault.jpg`;
 const post = (path: string, body?: string) => fetch(path, { method: 'POST', body }).then(r => r.json());
+const clock = (t: number) => new Date(t).toLocaleTimeString('ru', { hour: '2-digit', minute: '2-digit' });
 
 /** Who this browser is. randomUUID needs a secure context and guests arrive over plain http — getRandomValues does not. */
 const uid = (localStorage.uid ??= crypto.getRandomValues(new Uint32Array(4)).join('-'));
@@ -27,7 +29,8 @@ function App() {
   const [color, setColor] = useState(localStorage.color ?? '');
   const [edit, setEdit] = useState(false);
   const [palette, setPalette] = useState(false);
-  const [tab, setTab] = useState<'queue' | 'find' | 'me'>('queue');
+  const [tab, setTab] = useState<'queue' | 'find' | 'me' | 'log'>('queue');
+  const [sung, setSung] = useState<Sung[]>([]);
   /** Last few queries that actually led to a song — kept per browser, the server has no business knowing them. */
   /** A guard against fat fingers, not a permission: /remove still takes anyone's word for it. */
   const [others, setOthers] = useState(localStorage.others === '1');
@@ -55,6 +58,11 @@ function App() {
     return () => (clearTimeout(retry), (ws.onclose = null), ws.close());
   }, []);
 
+  // The history lives on the server like the queue does; every queue push means something may have ended
+  useEffect(() => {
+    if (tab === 'log') fetch('/history').then(r => r.json()).then(setSung);
+  }, [tab, queue]);
+
   useEffect(() => {
     if (!q.trim()) return setFound([]);
     const t = setTimeout(
@@ -81,6 +89,9 @@ function App() {
     setCopied(true);
     setTimeout(() => setCopied(false), 1500);
   };
+
+  // Only what left the stage, latest first: the queue tab already shows the rest
+  const done = sung.filter(s => s.status === 'played' || s.status === 'skipped').sort((a, b) => b.done! - a.done!);
 
   const addSong = (s: Found) => {
     const h = [q.trim(), ...history.filter(x => x !== q.trim())].slice(0, 8);
@@ -204,6 +215,23 @@ function App() {
           </>
         )}
 
+        {tab === 'log' && (
+          <>
+            <h2>Уже спели</h2>
+            {done.length === 0 && <div className="t">Пока никто не пел</div>}
+            {done.map(s => (
+              <div className="row" key={s.key}>
+                <img src={thumb(s.id)} />
+                <div className="t">
+                  {s.title}
+                  {s.nick && <div className="nick" style={{ color: s.color }}>{s.nick}</div>}
+                </div>
+                <span className="pos">{s.status === 'skipped' && '⏭ '}{clock(s.done!)}</span>
+              </div>
+            ))}
+          </>
+        )}
+
         {tab === 'queue' && (
           <>
             <h2>Очередь</h2>
@@ -240,6 +268,7 @@ function App() {
           <button className={tab === 'queue' ? 'tab on' : 'tab'} onClick={() => setTab('queue')}>Очередь</button>
           <button className={tab === 'find' ? 'tab on' : 'tab'} onClick={() => setTab('find')}>Поиск</button>
           <button className={tab === 'me' ? 'tab on' : 'tab'} onClick={() => setTab('me')}>Профиль</button>
+          <button className={tab === 'log' ? 'tab on' : 'tab'} onClick={() => setTab('log')}>История</button>
           {/* <details> holds the open/closed state — no useState, and Esc/outside taps stay the browser's job */}
           <details className="drop">
             <summary aria-label="Поделиться">
