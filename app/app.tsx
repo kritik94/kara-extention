@@ -31,6 +31,7 @@ function App() {
   const [palette, setPalette] = useState(false);
   const [tab, setTab] = useState<'queue' | 'find' | 'me' | 'log'>('queue');
   const [sung, setSung] = useState<Sung[]>([]);
+  const [sid, setSid] = useState('');
   /** Last few queries that actually led to a song — kept per browser, the server has no business knowing them. */
   /** A guard against fat fingers, not a permission: /remove still takes anyone's word for it. */
   const [others, setOthers] = useState(localStorage.others === '1');
@@ -60,7 +61,9 @@ function App() {
 
   // The history lives on the server like the queue does; every queue push means something may have ended
   useEffect(() => {
-    if (tab === 'log') fetch('/history').then(r => r.json()).then(setSung);
+    if (tab !== 'log') return;
+    fetch('/history').then(r => r.json()).then(setSung);
+    fetch('/session').then(r => r.json()).then(d => setSid(d.session));
   }, [tab, queue]);
 
   useEffect(() => {
@@ -218,6 +221,7 @@ function App() {
         {tab === 'log' && (
           <>
             <h2>Уже спели</h2>
+            {sid && <div className="nick">Вечер {sid}</div>}
             {done.length === 0 && <div className="t">Пока никто не пел</div>}
             {done.map(s => (
               <div className="row" key={s.key}>

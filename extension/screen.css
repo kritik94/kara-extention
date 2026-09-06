@@ -75,6 +75,7 @@ html.kara-big video.html5-main-video {
 
 #kara-qr { text-align: center; }
 #kara-qr svg { width: 210px; display: block; margin: 10px auto 0; border-radius: 4px; background: #fff; }
+#kara-sid { margin-top: 8px; text-align: center; font-size: 12px; color: #777; }
 
 /* z-index is useless: #movie_player sits in ytd-app's own stacking context.
    visibility inherits — black out the whole page and bring back only the player. */

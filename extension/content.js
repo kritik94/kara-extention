@@ -17,6 +17,7 @@ panel.innerHTML = `
     <p><button id="kara-fair" title="Выключено — простая очередь, кто раньше добавил. Включено — одному гостю достаётся не больше N песен подряд, дальше пускают следующего. Уже стоящие песни не переставляются: правило встречает только новые">Честная очередь</button><input id="kara-n" type="number" min="1" max="10" value="3" title="Сколько песен подряд достаётся одному гостю"></p>
     <ol id="kara-list"></ol>
     <div id="kara-qr" title="QR на страницу очереди"></div>
+    <div id="kara-sid" title="Новый вечер начинается из окна расширения"></div>
   </div>
   <div id="kara-next" hidden></div>
   <div id="kara-emojis"></div>`;
@@ -153,6 +154,11 @@ syncBig();
 document.addEventListener('DOMContentLoaded', () => (document.body.append(panel), syncBig()), { once: true });
 fetch(API + '/gen').then(r => r.json()).then(d => showGen(d.gen)).catch(() => {}); // server is down: the button stays off
 
+// The evening's id, so two screens (or a guest's phone) can tell they look at the same one
+const showSession = () =>
+  fetch(API + '/session').then(r => r.json()).then(d => ($('sid').textContent = 'Вечер ' + d.session)).catch(() => {});
+showSession();
+
 // Chrome blocks <img src="http://..."> from an HTTPS page as mixed content, but not fetch
 fetch(API + '/qr.svg')
   .then(r => r.text())
@@ -164,7 +170,7 @@ fetch(API + '/qr.svg')
   const ws = new WebSocket(API.replace('http', 'ws') + '/ws');
   ws.onmessage = e => {
     const m = JSON.parse(e.data);
-    Array.isArray(m) ? render(m) : fly(m); // the queue is an array, an emoji is an object
+    Array.isArray(m) ? (render(m), showSession()) : fly(m); // the queue is an array, an emoji is an object; a push may also mean a new evening
   };
   ws.onclose = () => (render(null), setTimeout(connect, 2000));
 })();

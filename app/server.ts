@@ -288,7 +288,7 @@ if (import.meta.main) {
       '/queue': () => json(withUsers(list())),
       '/history': () => json(withUsers(history())), // the whole evening, statuses and all
       // A new evening: the queue starts empty and nobody carries a turn over from the last one
-      '/session': { POST: () => (newSession(), push()) },
+      '/session': { GET: () => json({ session: session() }), POST: () => (newSession(), push()) },
       '/gen': {
         GET: () => json({ gen: GEN }),
         // Nothing is pushed: songs already in the queue keep their generation, the new value meets the next one added
